@@ -21,7 +21,8 @@ jobs:
           sudo env AIMO_BUILD_DIR=/tmp/aimoos-build python3 scripts/fetch_runtime.py
       - name: Verify desktop and installation safeguards
         run: |
-          sudo env AIMO_BUILD_DIR=/tmp/aimoos-build QT_QPA_PLATFORM=offscreen bash scripts/native_env.sh /tmp/aimoos-build/sysroot/usr/bin/python3.12 -m unittest discover -s tests -v
+          sudo install -d -m 700 /tmp/aimo-ci-runtime
+          sudo env XDG_RUNTIME_DIR=/tmp/aimo-ci-runtime AIMO_BUILD_DIR=/tmp/aimoos-build QT_QPA_PLATFORM=offscreen bash scripts/native_env.sh /tmp/aimoos-build/sysroot/usr/bin/python3.12 -m unittest discover -s tests -v
       - name: Build ISO and install VMware disk
         run: |
           sudo env AIMO_BUILD_DIR=/tmp/aimoos-build python3 scripts/build_vmware.py --out /tmp/aimoos-release

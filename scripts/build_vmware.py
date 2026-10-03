@@ -103,7 +103,7 @@ def main():
     native([B/'sysroot/usr/bin/xorriso','-as','mkisofs','-o',iso,'-V','AIMOOS_INSTALL','-b','isolinux/isolinux.bin','-c','isolinux/boot.cat','-no-emul-boot','-boot-load-size','4','-boot-info-table','-isohybrid-mbr',B/'sysroot/usr/lib/ISOLINUX/isohdpfx.bin',stage])
     # A disposable bootstrap root, with external kernel, exists only at build time.
     bootstrap=B/'vmware-bootstrap.img'
-    if bootstrap.exists():bootstrap.unlink()
+    if bootstrap.exists():bootstrap.unlink(missing_ok=True)
     with bootstrap.open('wb') as f:f.truncate(12*1024**3)
     subprocess.run(['mke2fs','-q','-t','ext4','-F','-m','1','-L','AimoOS','-d',str(R),str(bootstrap)],check=True)
     with disk.open('wb') as f:f.truncate(args.size_gib*1024**3)
@@ -114,7 +114,7 @@ def main():
     if 'AIMO_INSTALL_SUCCESS' not in log.read_text(errors='replace'):raise RuntimeError('Guest installer failed; inspect '+str(log))
     folder=out/f'AimoOS-{V}-VMware';folder.mkdir()
     native([B/'sysroot/usr/bin/qemu-img','convert','-p','-f','raw','-O','vmdk','-o','subformat=monolithicSparse,adapter_type=ide',disk,folder/'AimoOS.vmdk'])
-    (folder/'AimoOS.vmx').write_text('''encoding = "UTF-8"
+    (folder/'AimoOS.vmx').write_text('''.encoding = "UTF-8"
 config.version = "8"
 virtualHW.version = "19"
 displayName = "AimoOS 0.2.0"
@@ -147,7 +147,7 @@ tools.syncTime = "TRUE"
         for file in sorted(folder.iterdir()):z.write(file,file.relative_to(out))
     sums=out/'SHA256SUMS.txt'
     sums.write_text(''.join(f'{hashlib.file_digest(f.open("rb"),"sha256").hexdigest()}  {f.name}\n' for f in (iso,archive)))
-    bootstrap.unlink()
+    bootstrap.unlink(missing_ok=True)
     if not args.stage_root:shutil.rmtree(R)
     shutil.copy2(B/'packages.lock.json',out/'packages.lock.json')
     print(json.dumps({'iso':str(iso),'vmware':str(archive),'checksums':str(sums)},indent=2),flush=True)

@@ -3,7 +3,7 @@
 set -euo pipefail
 aimo_project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 aimo_runtime_root="${AIMO_BUILD_DIR:-$aimo_project_root/build}/sysroot"
-export LD_LIBRARY_PATH="$aimo_runtime_root/usr/lib/x86_64-linux-gnu:$aimo_runtime_root/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export LD_LIBRARY_PATH="$aimo_runtime_root/usr/lib/x86_64-linux-gnu:$aimo_runtime_root/usr/lib:$aimo_runtime_root/usr/lib/x86_64-linux-gnu/libproxy${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export PATH="$aimo_runtime_root/usr/bin:$aimo_runtime_root/usr/sbin:$PATH"
 export PYTHONPATH="$aimo_project_root:$aimo_runtime_root/usr/lib/python3/dist-packages${PYTHONPATH:+:$PYTHONPATH}"
 export QT_PLUGIN_PATH="$aimo_runtime_root/usr/lib/x86_64-linux-gnu/qt6/plugins"

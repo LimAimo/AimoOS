@@ -2,6 +2,8 @@
 
 新增 BIOS 可安装 ISO、VMware VMX/VMDK 包与空白磁盘安装器。Windows VMware 的两种部署方式见 [手把手教程](docs/VMWARE.md)。本版要求 BIOS 和关闭 3D 加速。
 
+独立构建机使用 `native_env.sh` 加载解包运行时及 libproxy 后端路径。
+
 构建：先运行 `scripts/fetch_runtime.py`，再以 root 运行 `python3 scripts/build_vmware.py --out /absolute/release/folder`。构建过程在临时 QEMU 客户机内完成分区和 GRUB 安装，不需要宿主机 mount/chroot 权限。
 
 # AimoOS
