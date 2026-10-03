@@ -1,0 +1,17 @@
+#!/bin/busybox sh
+export PATH=/bin
+mkdir -p /proc /sys /dev /newroot
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev
+aimo_attempt=0
+until [ -b /dev/vda ]; do
+  aimo_attempt=$((aimo_attempt+1))
+  [ "$aimo_attempt" -gt 30 ] && exec sh
+  sleep 1
+done
+mount -t ext4 -o rw,noatime /dev/vda /newroot || exec sh
+mount --move /dev /newroot/dev
+mount --move /sys /newroot/sys
+mount --move /proc /newroot/proc
+exec switch_root /newroot /sbin/aimo-init

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+  <resistance><strength>10</strength><screen_edge_strength>18</screen_edge_strength></resistance>
+  <focus><focusNew>yes</focusNew><followMouse>no</followMouse><focusLast>yes</focusLast><underMouse>no</underMouse><focusDelay>200</focusDelay><raiseOnFocus>no</raiseOnFocus></focus>
+  <placement><policy>Smart</policy><center>yes</center><monitor>Primary</monitor><primaryMonitor>1</primaryMonitor></placement>
+  <theme><name>Aimo</name><titleLayout>NLIMC</titleLayout><keepBorder>yes</keepBorder><animateIconify>yes</animateIconify>
+    <font place="ActiveWindow"><name>Noto Sans CJK SC</name><size>10</size><weight>Normal</weight></font>
+    <font place="InactiveWindow"><name>Noto Sans CJK SC</name><size>10</size><weight>Normal</weight></font>
+    <font place="OnScreenDisplay"><name>Noto Sans CJK SC</name><size>11</size><weight>Normal</weight></font>
+  </theme>
+  <desktops><number>1</number><firstdesk>1</firstdesk><names><name>桌面</name></names></desktops>
+  <resize><drawContents>yes</drawContents><popupShow>Never</popupShow></resize>
+  <keyboard>
+    <keybind key="A-Tab"><action name="NextWindow"><allDesktops>no</allDesktops><dialog>list</dialog><bar>yes</bar></action></keybind>
+    <keybind key="A-S-Tab"><action name="PreviousWindow"><dialog>list</dialog></action></keybind>
+    <keybind key="A-F4"><action name="Close"/></keybind>
+    <keybind key="W-d"><action name="ToggleShowDesktop"/></keybind>
+    <keybind key="W-space"><action name="Execute"><command>python3 -m aimo.ctl toggle-start</command></action></keybind>
+    <keybind key="W-e"><action name="Execute"><command>python3 -m aimo.ctl launch:files</command></action></keybind>
+    <keybind key="W-r"><action name="Execute"><command>python3 -m aimo.ctl launch:terminal</command></action></keybind>
+    <keybind key="W-l"><action name="Execute"><command>python3 -m aimo.ctl lock</command></action></keybind>
+    <keybind key="W-Left"><action name="Execute"><command>python3 -m aimo.ctl snap-left</command></action></keybind>
+    <keybind key="W-Right"><action name="Execute"><command>python3 -m aimo.ctl snap-right</command></action></keybind>
+    <keybind key="W-Up"><action name="Maximize"/></keybind>
+    <keybind key="W-Down"><action name="Iconify"/></keybind>
+  </keyboard>
+  <mouse><dragThreshold>6</dragThreshold><doubleClickTime>300</doubleClickTime><screenEdgeWarpTime>0</screenEdgeWarpTime>
+    <context name="Frame">
+      <mousebind button="A-Left" action="Press"><action name="Focus"/><action name="Raise"/></mousebind>
+      <mousebind button="A-Left" action="Drag"><action name="Move"/></mousebind>
+      <mousebind button="A-Right" action="Press"><action name="Focus"/><action name="Raise"/></mousebind>
+      <mousebind button="A-Right" action="Drag"><action name="Resize"/></mousebind>
+    </context>
+    <context name="Titlebar">
+      <mousebind button="Left" action="Press"><action name="Focus"/><action name="Raise"/></mousebind>
+      <mousebind button="Left" action="Drag"><action name="Move"/></mousebind>
+      <mousebind button="Left" action="DoubleClick"><action name="ToggleMaximize"/></mousebind>
+      <mousebind button="Right" action="Click"><action name="ShowMenu"><menu>client-menu</menu></action></mousebind>
+    </context>
+    <context name="Client"><mousebind button="Left" action="Press"><action name="Focus"/><action name="Raise"/></mousebind></context>
+    <context name="Top"><mousebind button="Left" action="Drag"><action name="Resize"/></mousebind></context>
+    <context name="Bottom"><mousebind button="Left" action="Drag"><action name="Resize"/></mousebind></context>
+    <context name="Left"><mousebind button="Left" action="Drag"><action name="Resize"/></mousebind></context>
+    <context name="Right"><mousebind button="Left" action="Drag"><action name="Resize"/></mousebind></context>
+    <context name="TLCorner"><mousebind button="Left" action="Drag"><action name="Resize"/></mousebind></context>
+    <context name="TRCorner"><mousebind button="Left" action="Drag"><action name="Resize"/></mousebind></context>
+    <context name="BLCorner"><mousebind button="Left" action="Drag"><action name="Resize"/></mousebind></context>
+    <context name="BRCorner"><mousebind button="Left" action="Drag"><action name="Resize"/></mousebind></context>
+    <context name="Iconify"><mousebind button="Left" action="Click"><action name="Iconify"/></mousebind></context>
+    <context name="Maximize"><mousebind button="Left" action="Click"><action name="ToggleMaximize"/></mousebind></context>
+    <context name="Close"><mousebind button="Left" action="Click"><action name="Close"/></mousebind></context>
+  </mouse>
+  <applications><application class="*"><focus>yes</focus></application></applications>
+</openbox_config>

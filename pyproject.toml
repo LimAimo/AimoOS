@@ -1,0 +1,10 @@
+[project]
+name = "aimoos"
+version = "0.1.0"
+description = "A paper-and-ink Linux desktop and bootable virtual-machine experience."
+requires-python = ">=3.12"
+
+[tool.aimoos]
+base = "Ubuntu 24.04 LTS"
+architecture = "amd64"
+desktop = "Qt 6 / X11 / Openbox"

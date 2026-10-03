@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=浏览器
+Exec=/usr/bin/aimo-open %U
+Icon=web-browser
+Categories=Network;WebBrowser;
+MimeType=text/html;x-scheme-handler/http;x-scheme-handler/https;

@@ -1,0 +1,27 @@
+#!/usr/bin/python3
+"""Restricted sudo entry point. Do not run on a non-AimoOS host."""
+import json,os,pwd,sys
+sys.path.insert(0,"/opt/aimoos")
+from aimo.auth import Accounts
+
+def main():
+    accounts=Accounts();accounts.privileged()
+    if not os.environ.get("SUDO_UID"):raise ValueError("缺少登录用户身份")
+    uid=int(os.environ["SUDO_UID"]);caller=pwd.getpwuid(uid).pw_name
+    profile=accounts.profile(caller)
+    if uid<1000 or not profile:raise ValueError("登录用户身份无效")
+    payload=sys.stdin.read(8193)
+    if len(payload)>8192:raise ValueError("请求太长")
+    data=json.loads(payload)
+    if data.get("action")=="create":
+        if not profile.get("administrator"):raise ValueError("只有管理员可以添加账户")
+        accounts.create(data["username"],data["display_name"],data["password"])
+    elif data.get("action")=="password":
+        accounts.change_password(caller,data["old_password"],data["password"])
+    else:raise ValueError("不支持这个账户操作")
+    print(json.dumps({"ok":True}))
+
+try:main()
+except Exception as exc:
+    print(json.dumps({"ok":False,"message":str(exc) if isinstance(exc,ValueError) else "账户操作未完成，请重试"}))
+    sys.exit(1)

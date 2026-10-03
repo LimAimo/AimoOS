@@ -1,0 +1,13 @@
+[Default Applications]
+x-scheme-handler/http=aimo-browser.desktop
+x-scheme-handler/https=aimo-browser.desktop
+text/html=aimo-browser.desktop
+application/pdf=qpdfview.desktop
+image/png=ristretto.desktop
+image/jpeg=ristretto.desktop
+application/vnd.oasis.opendocument.text=libreoffice-writer.desktop
+application/vnd.openxmlformats-officedocument.wordprocessingml.document=libreoffice-writer.desktop
+application/vnd.oasis.opendocument.spreadsheet=libreoffice-calc.desktop
+application/vnd.openxmlformats-officedocument.spreadsheetml.sheet=libreoffice-calc.desktop
+application/vnd.oasis.opendocument.presentation=libreoffice-impress.desktop
+application/vnd.openxmlformats-officedocument.presentationml.presentation=libreoffice-impress.desktop

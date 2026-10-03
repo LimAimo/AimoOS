@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+[ "$(id -u)" -eq 0 ] && [ -f /etc/aimo-release ] || exit 1
+case "${1:-}" in
+  reboot) sync; exec /usr/bin/busybox reboot -f ;;
+  poweroff) sync; exec /usr/bin/busybox poweroff -f ;;
+  *) exit 2 ;;
+esac

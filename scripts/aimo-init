@@ -1,0 +1,83 @@
+#!/bin/busybox sh
+# Guest PID 1. All mounts/account initialization occur inside the VM.
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export HOME=/root DISPLAY=:0 LANG=zh_CN.UTF-8 LC_ALL=zh_CN.UTF-8 TZ=Asia/Shanghai
+export PYTHONPATH=/opt/aimoos QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1
+export GALLIUM_DRIVER=softpipe
+export XDG_RUNTIME_DIR=/run/aimo-greeter
+umask 022
+mkdir -p /run /tmp /dev/pts /dev/shm /var/log /run/dbus "$XDG_RUNTIME_DIR"
+chmod 1777 /tmp /dev/shm
+chmod 700 "$XDG_RUNTIME_DIR"
+mount -t tmpfs tmpfs /run -o mode=755 2>/dev/null || true
+mkdir -p /run/dbus "$XDG_RUNTIME_DIR"
+chmod 700 "$XDG_RUNTIME_DIR"
+mount -t devpts devpts /dev/pts -o mode=620,gid=5 2>/dev/null || true
+mount -t tmpfs tmpfs /dev/shm -o mode=1777 2>/dev/null || true
+mount -t tmpfs tmpfs /tmp -o mode=1777 2>/dev/null || true
+mount -t cgroup2 cgroup2 /sys/fs/cgroup 2>/dev/null || true
+hostname aimoos
+ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+ldconfig
+[ -s "/lib/modules/$(uname -r)/modules.dep" ] || depmod -a
+modprobe bochs 2>/dev/null || true
+modprobe e1000 2>/dev/null || true
+modprobe virtio_rng 2>/dev/null || true
+modprobe snd_hda_intel 2>/dev/null || true
+modprobe virtio_console 2>/dev/null || true
+if [ -x /usr/lib/systemd/systemd-udevd ]; then
+  /usr/lib/systemd/systemd-udevd --daemon
+  udevadm trigger --action=add
+  udevadm settle --timeout=15
+fi
+if [ ! -e /var/lib/aimoos/initialized ]; then
+  mkdir -p /var/lib/aimoos
+  localedef -i zh_CN -f UTF-8 zh_CN.UTF-8 > /var/log/locale.log 2>&1 || true
+  fc-cache -f > /var/log/fonts.log 2>&1 || true
+  update-ca-certificates > /var/log/certificates.log 2>&1 || true
+  glib-compile-schemas /usr/share/glib-2.0/schemas 2>/dev/null || true
+  /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders > /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders.cache 2>/dev/null || true
+  /usr/lib/x86_64-linux-gnu/libgtk-3-0t64/gtk-query-immodules-3.0 > /usr/lib/x86_64-linux-gnu/gtk-3.0/3.0.0/immodules.cache 2>/dev/null || true
+  update-desktop-database /usr/share/applications 2>/dev/null || true
+  update-mime-database /usr/share/mime 2>/dev/null || true
+  dbus-uuidgen --ensure=/etc/machine-id
+  touch /var/lib/aimoos/initialized
+fi
+dbus-daemon --system --fork 2>/dev/null || true
+for aimo_iface in /sys/class/net/*; do
+  aimo_iface=${aimo_iface##*/}
+  [ "$aimo_iface" = lo ] && continue
+  ip link set "$aimo_iface" up
+  /usr/bin/busybox udhcpc -b -i "$aimo_iface" -s /opt/aimoos/scripts/dhcp-event > /var/log/network.log 2>&1 &
+done
+ip link set lo up
+case " $(cat /proc/cmdline) " in
+  *" aimo.test=1 "*) python3 /opt/aimoos/tools/guest_probe.py > /var/log/test-probe.log 2>&1 & ;;
+esac
+# QEMU standard VGA exposes the bochs DRM driver; Xorg modesetting uses llvmpipe.
+export XAUTHORITY="$XDG_RUNTIME_DIR/Xauthority"
+aimo_cookie=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
+touch "$XAUTHORITY"
+chmod 600 "$XAUTHORITY"
+xauth -f "$XAUTHORITY" add :0 . "$aimo_cookie"
+unset aimo_cookie
+Xorg :0 -nolisten tcp -auth "$XAUTHORITY" vt7 > /var/log/xorg-start.log 2>&1 &
+aimo_x_pid=$!
+aimo_attempt=0
+until xdpyinfo -display :0 >/dev/null 2>&1; do
+  aimo_attempt=$((aimo_attempt+1))
+  if [ "$aimo_attempt" -ge 50 ]; then
+    echo "AimoOS: display initialization failed; see /var/log/Xorg.0.log" > /dev/console
+    exec /usr/bin/busybox sh
+  fi
+  sleep 1
+done
+xrandr --output Virtual-1 --mode 1600x900 2>/dev/null || xrandr --output VGA-1 --mode 1600x900 2>/dev/null || true
+xset s off
+xset -dpms
+cd /opt/aimoos
+while kill -0 "$aimo_x_pid" 2>/dev/null; do
+  python3 -m aimo.main --greeter >> /var/log/greeter.log 2>&1
+  sleep 1
+done
+exec /usr/bin/busybox sh

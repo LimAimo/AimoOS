@@ -1,0 +1,11 @@
+#!/bin/busybox sh
+case "$1" in
+  deconfig) /usr/bin/busybox ifconfig "$interface" 0.0.0.0 ;;
+  bound|renew)
+    /usr/bin/busybox ifconfig "$interface" "$ip" netmask "${subnet:-255.255.255.0}"
+    ip route del default 2>/dev/null || true
+    for aimo_router in $router; do ip route add default via "$aimo_router" dev "$interface"; break; done
+    : > /etc/resolv.conf
+    for aimo_dns in $dns; do echo "nameserver $aimo_dns" >> /etc/resolv.conf; done
+    ;;
+esac
