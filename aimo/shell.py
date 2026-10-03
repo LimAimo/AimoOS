@@ -270,7 +270,10 @@ class Shell:
         return True
     def logout(self):
         dialog=Dialog("退出登录","请先保存其他应用中尚未保存的内容。",accept="退出登录",parent=self.taskbar)
-        if dialog.exec() and self.can_leave():QApplication.instance().quit()
+        # quit() sends close events, which our animated windows deliberately
+        # defer. After the save guards succeed, exit the session event loop so
+        # those animations cannot veto logout and leave a hidden desktop alive.
+        if dialog.exec() and self.can_leave():QApplication.instance().exit(0)
     def power(self,action):
         title="重新启动" if action=="reboot" else "关机"
         dialog=Dialog(title,"请先保存其他应用中尚未保存的内容。",accept=title,parent=self.taskbar)

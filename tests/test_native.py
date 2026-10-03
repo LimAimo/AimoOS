@@ -6,17 +6,24 @@ from types import SimpleNamespace
 
 os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
 try:
-    from PyQt6.QtCore import Qt
-    from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtCore import Qt,QTimer
+    from PyQt6.QtWidgets import QApplication,QWidget
     from PyQt6.QtTest import QTest
 except ImportError:
     QApplication=None
 
+_APP=None
+def application():
+    global _APP
+    if _APP is None:
+        QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
+        _APP=QApplication.instance() or QApplication([])
+    return _APP
+
 @unittest.skipIf(QApplication is None,'Run with the extracted Qt runtime for native checks')
 class NativeFiles(unittest.TestCase):
     def test_worker_loading_theme_changes_and_reopen(self):
-        QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
-        app=QApplication.instance() or QApplication([])
+        app=application()
         from aimo import apps
         from aimo.theme import THEME
         with tempfile.TemporaryDirectory() as directory:
@@ -38,5 +45,37 @@ class NativeFiles(unittest.TestCase):
                             self.assertFalse(window.model.data(index,Qt.ItemDataRole.DecorationRole).isNull())
                     window.close();app.processEvents();QTest.qWait(40)
                 THEME.apply(dark=False,reduced_motion=False)
+
+
+@unittest.skipIf(QApplication is None,'Run with the extracted Qt runtime for native checks')
+class NativeSession(unittest.TestCase):
+    def test_logout_exits_with_animated_windows_open(self):
+        app=application()
+        app.setQuitOnLastWindowClosed(False)
+        from aimo.controls import Dialog
+        from aimo.shell import Shell
+        from aimo.window import Window
+        from aimo.theme import THEME
+        THEME.apply(reduced_motion=False)
+        taskbar=QWidget();taskbar.show()
+        window=Window('Session document','notes');window.show()
+        shell=Shell.__new__(Shell);shell.taskbar=taskbar;shell.windows=[]
+        expired=[]
+        watchdog=QTimer();watchdog.setSingleShot(True)
+        watchdog.timeout.connect(lambda:(expired.append(True),app.exit(1)))
+        def confirm():
+            dialog=app.activeModalWidget()
+            if isinstance(dialog,Dialog):dialog.accept()
+            else:QTimer.singleShot(10,confirm)
+        QTimer.singleShot(30,confirm)
+        QTimer.singleShot(0,shell.logout)
+        watchdog.start(1500)
+        try:
+            self.assertEqual(app.exec(),0)
+            self.assertFalse(expired,'Animated close events prevented the session from exiting')
+        finally:
+            watchdog.stop();taskbar.close()
+            if not window._closing:window._finish_close()
+            app.processEvents();QTest.qWait(40)
 
 if __name__=='__main__':unittest.main()

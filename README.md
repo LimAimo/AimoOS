@@ -72,7 +72,7 @@ python3 -m unittest discover -s tests -v
 python3 -m compileall -q aimo scripts tools
 ```
 
-`tests/test_services.py` 检查文件名边界、回收站冲突与还原、计算器执行边界、偏好保存及多账户密码隔离。真实虚拟机的验证记录见 [docs/VALIDATION.md](docs/VALIDATION.md)。
+`tests/test_services.py` 检查文件名边界、回收站冲突与还原、计算器执行边界、偏好保存及多账户密码隔离；`tests/test_native.py` 检查异步目录加载、图标主题切换、反复关窗以及带动画窗口的退出登录。真实虚拟机的验证记录见 [docs/VALIDATION.md](docs/VALIDATION.md)。
 
 `tools/vm_lab.py` 是开发者测试工具，使用 QMP 和本地 virtio 诊断通道。**它会开启实验用 root 命令通道，只能在隔离的开发环境使用。** 正常启动器不传入 `aimo.test=1`，也不创建这个通道；测试端口仅绑定主机回环地址。不要使用实验启动器处理私人或生产数据。
 
