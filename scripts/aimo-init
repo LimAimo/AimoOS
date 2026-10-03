@@ -54,14 +54,15 @@ ip link set lo up
 case " $(cat /proc/cmdline) " in
   *" aimo.test=1 "*) python3 /opt/aimoos/tools/guest_probe.py > /var/log/test-probe.log 2>&1 & ;;
 esac
-# QEMU standard VGA exposes the bochs DRM driver; Xorg modesetting uses llvmpipe.
+# Keep the virtual display alive across users. Resetting the bochs/GLX server
+# after its last client disconnects can crash during repeated session changes.
 export XAUTHORITY="$XDG_RUNTIME_DIR/Xauthority"
 aimo_cookie=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
 touch "$XAUTHORITY"
 chmod 600 "$XAUTHORITY"
 xauth -f "$XAUTHORITY" add :0 . "$aimo_cookie"
 unset aimo_cookie
-Xorg :0 -nolisten tcp -auth "$XAUTHORITY" vt7 > /var/log/xorg-start.log 2>&1 &
+Xorg :0 -noreset -nolisten tcp -auth "$XAUTHORITY" vt7 > /var/log/xorg-start.log 2>&1 &
 aimo_x_pid=$!
 aimo_attempt=0
 until xdpyinfo -display :0 >/dev/null 2>&1; do
