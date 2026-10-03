@@ -1,0 +1,40 @@
+name: Build AimoOS VMware release
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/release.yml']
+permissions:
+  contents: write
+concurrency:
+  group: aimoos-release
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve Ubuntu packages
+        run: |
+          sudo apt-get update
+          sudo env AIMO_BUILD_DIR=/tmp/aimoos-build python3 scripts/fetch_runtime.py
+      - name: Verify desktop and installation safeguards
+        run: |
+          sudo env AIMO_BUILD_DIR=/tmp/aimoos-build QT_QPA_PLATFORM=offscreen bash scripts/native_env.sh /tmp/aimoos-build/sysroot/usr/bin/python3.12 -m unittest discover -s tests -v
+      - name: Build ISO and install VMware disk
+        run: |
+          sudo env AIMO_BUILD_DIR=/tmp/aimoos-build python3 scripts/build_vmware.py --out /tmp/aimoos-release
+          sudo chmod a+r /tmp/aimoos-release/*.iso /tmp/aimoos-release/*.zip /tmp/aimoos-release/SHA256SUMS.txt
+      - name: Publish prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')
+          gh release create "v${version}" "/tmp/aimoos-release/AimoOS-${version}-amd64.iso" "/tmp/aimoos-release/AimoOS-${version}-VMware.zip" /tmp/aimoos-release/SHA256SUMS.txt docs/VMWARE.md --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "AimoOS ${version} · VMware 预览版" --prerelease --notes-file docs/RELEASE_0.2.0.md
+      - name: Save build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aimoos-build-log
+          path: /tmp/aimoos-release/build-boot.log

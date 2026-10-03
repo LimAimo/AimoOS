@@ -62,7 +62,7 @@ def prepare_root():
         (ROOT/name).mkdir(parents=True,exist_ok=True)
     (ROOT/"tmp").chmod(0o1777);(ROOT/"root").chmod(0o700)
     source=ROOT/"opt/aimoos"
-    shutil.copytree(PROJECT,source,ignore=shutil.ignore_patterns("build","out","screenshots",".git","__pycache__","*.pyc"))
+    shutil.copytree(PROJECT,source,ignore=shutil.ignore_patterns("build","out","screenshots",".git","__pycache__","*.pyc","*.log","release","*.zip","*.vmdk","*.iso","*.img"))
     for script in (source/"scripts").iterdir():
         if script.is_file():script.chmod(0o755)
     copy(PROJECT/"scripts/aimo-init","/sbin/aimo-init",0o755)
@@ -82,7 +82,7 @@ def prepare_root():
     write("/etc/resolv.conf","nameserver 10.0.2.3\n")
     write("/etc/aimo-release",f"AimoOS {VERSION}\n")
     write("/etc/os-release",f'NAME="AimoOS"\nPRETTY_NAME="AimoOS {VERSION}"\nID=aimoos\nID_LIKE=ubuntu\nVERSION_ID="{VERSION}"\nUBUNTU_CODENAME=noble\n')
-    write("/etc/fstab","/dev/vda / ext4 defaults,noatime 0 1\n")
+    write("/etc/fstab","LABEL=AimoOS / ext4 defaults,noatime 0 1\n")
     write("/etc/nsswitch.conf","passwd: files\ngroup: files\nshadow: files\nhosts: files dns\nnetworks: files\nservices: files\nprotocols: files\n")
     write("/etc/default/locale","LANG=zh_CN.UTF-8\n")
     write("/etc/pam.d/common-auth","auth required pam_unix.so\n")
@@ -97,7 +97,7 @@ def prepare_root():
     with login.open("a") as file:file.write("\nUMASK 077\nHOME_MODE 0700\n")
     for name in ["usr/bin/sudo","usr/bin/passwd","usr/sbin/unix_chkpwd"]:
         if (ROOT/name).exists():(ROOT/name).chmod(0o4755)
-    write("/etc/X11/xorg.conf.d/20-aimo.conf",'Section "Device"\n Identifier "QEMU display"\n Driver "modesetting"\n Option "AccelMethod" "none"\nEndSection\n')
+    write("/etc/X11/xorg.conf.d/20-aimo.conf",'Section "Device"\n Identifier "Virtual display"\n Driver "modesetting"\n Option "AccelMethod" "none"\nEndSection\n')
     # Firmware symlinks and font/GL caches are initialized inside the guest.
     package_database()
     write("/etc/apt/sources.list","deb http://archive.ubuntu.com/ubuntu noble main universe restricted multiverse\ndeb http://archive.ubuntu.com/ubuntu noble-updates main universe restricted multiverse\ndeb http://security.ubuntu.com/ubuntu noble-security main universe restricted multiverse\n")

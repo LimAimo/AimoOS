@@ -18,7 +18,7 @@ import tarfile
 PROJECT = Path(__file__).resolve().parents[1]
 PACKAGES = [
     "base-files", "base-passwd", "bash", "coreutils", "dash", "findutils",
-    "grep", "sed", "gzip", "tar", "util-linux", "login", "passwd",
+    "grep", "sed", "mawk", "gzip", "tar", "util-linux", "login", "passwd",
     "libpam-modules", "libpam-runtime", "sudo", "apt", "ubuntu-keyring",
     "ca-certificates", "locales", "tzdata", "iproute2", "iputils-ping", "curl",
     "busybox-static", "kmod", "e2fsprogs", "dbus", "dbus-x11",
@@ -29,6 +29,8 @@ PACKAGES = [
     "python3-pyte", "libgl1-mesa-dri", "fonts-noto-cjk", "fonts-dejavu-core",
     "qemu-system-x86", "qemu-utils", "seabios", "xorriso", "isolinux",
     "syslinux-common", "cpio", "strace",
+    "grub-pc-bin", "grub-common", "grub2-common", "squashfs-tools", "zstd",
+    "fdisk", "open-vm-tools", "open-vm-tools-desktop", "xserver-xorg-video-vmware",
     "libreoffice-writer", "libreoffice-calc", "libreoffice-impress",
     "libreoffice-l10n-zh-cn", "libreoffice-gtk3", "fonts-liberation2",
     "fcitx5", "fcitx5-chinese-addons", "fcitx5-frontend-qt6",

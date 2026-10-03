@@ -18,7 +18,7 @@ SHOT.mkdir(exist_ok=True)
 log=(BUILD/'qemu.log').open('w')
 command=[str(BUILD/'sysroot/usr/bin/qemu-system-x86_64'),'-L',str(BUILD/'sysroot/usr/share/qemu'),
     '-accel','tcg,thread=multi','-cpu','max','-smp',os.environ.get('AIMO_VM_CPUS','4'),'-m',os.environ.get('AIMO_VM_RAM','4096'),'-usb','-device','usb-tablet',
-    '-vga','none','-device','VGA,xres=1600,yres=900','-display','none','-audiodev','none,id=audio','-device','intel-hda','-device','hda-duplex,audiodev=audio',
+    *(['-vga','vmware'] if os.environ.get('AIMO_VM_VGA')=='vmware' else ['-vga','none','-device','VGA,xres=1600,yres=900']),'-display','none','-audiodev','none,id=audio','-device','intel-hda','-device','hda-duplex,audiodev=audio',
     '-device','virtio-rng-pci','-netdev','user,id=net0','-device','e1000,netdev=net0,romfile=',
     '-kernel',str(OUT/'vmlinuz'),'-initrd',str(OUT/'initrd.gz'),
     '-append','root=/dev/vda rw console=ttyS0 loglevel=4 aimo.test=1',

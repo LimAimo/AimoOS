@@ -1,16 +1,44 @@
 #!/bin/busybox sh
-export PATH=/bin
-mkdir -p /proc /sys /dev /newroot
+# Minimal initramfs with storage modules; BIOS disk and installer ISO boot.
+export PATH=/bin:/sbin
+mkdir -p /proc /sys /dev /newroot /aimo/media /aimo/lower /aimo/overlay
 mount -t proc proc /proc
 mount -t sysfs sysfs /sys
 mount -t devtmpfs devtmpfs /dev
-aimo_attempt=0
-until [ -b /dev/vda ]; do
-  aimo_attempt=$((aimo_attempt+1))
-  [ "$aimo_attempt" -gt 30 ] && exec sh
-  sleep 1
+for driver in ahci ata_piix sd_mod sr_mod virtio_pci virtio_blk virtio_scsi mptspi vmw_pvscsi isofs squashfs overlay loop; do
+  modprobe "$driver" 2>/dev/null || true
 done
-mount -t ext4 -o rw,noatime /dev/vda /newroot || exec sh
+case " $(cat /proc/cmdline) " in
+  *" aimo.install=1 "*)
+    mount -t tmpfs tmpfs /aimo
+    mkdir -p /aimo/media /aimo/lower /aimo/overlay
+    aimo_attempt=0
+    until [ -b /dev/sr0 ]; do
+      aimo_attempt=$((aimo_attempt+1)); [ "$aimo_attempt" -gt 45 ] && exec sh; sleep 1
+    done
+    mount -t iso9660 -o ro /dev/sr0 /aimo/media || exec sh
+    mount -t squashfs -o loop,ro /aimo/media/aimo/root.squashfs /aimo/lower || exec sh
+    mount -t tmpfs -o mode=755 tmpfs /aimo/overlay
+    mkdir -p /aimo/overlay/upper /aimo/overlay/work
+    mount -t overlay overlay -o lowerdir=/aimo/lower,upperdir=/aimo/overlay/upper,workdir=/aimo/overlay/work /newroot || exec sh
+    mkdir -p /newroot/aimo
+    mount --move /aimo /newroot/aimo || exec sh
+    ;;
+  *)
+    aimo_attempt=0
+    aimo_root=""
+    until [ -n "$aimo_root" ]; do
+      for candidate in /dev/vda /dev/vda1 /dev/sda1 /dev/sdb1 /dev/hda1 /dev/nvme0n1p1; do
+        case "$(blkid -p "$candidate" 2>/dev/null)" in
+          *'LABEL="AimoOS"'*) aimo_root="$candidate"; break ;;
+        esac
+      done
+      [ -n "$aimo_root" ] && break
+      aimo_attempt=$((aimo_attempt+1)); [ "$aimo_attempt" -gt 45 ] && exec sh; sleep 1
+    done
+    mount -t ext4 -o rw,noatime "$aimo_root" /newroot || exec sh
+    ;;
+esac
 mount --move /dev /newroot/dev
 mount --move /sys /newroot/sys
 mount --move /proc /newroot/proc

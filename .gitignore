@@ -9,3 +9,6 @@ __pycache__/
 *.iso
 *.cpio.gz
 screenshots/
+release/
+*.vmdk
+*.zip

@@ -1,8 +1,14 @@
+# AimoOS 0.2.0 · VMware 预览版
+
+新增 BIOS 可安装 ISO、VMware VMX/VMDK 包与空白磁盘安装器。Windows VMware 的两种部署方式见 [手把手教程](docs/VMWARE.md)。本版要求 BIOS 和关闭 3D 加速。
+
+构建：先运行 `scripts/fetch_runtime.py`，再以 root 运行 `python3 scripts/build_vmware.py --out /absolute/release/folder`。构建过程在临时 QEMU 客户机内完成分区和 GRUB 安装，不需要宿主机 mount/chroot 权限。
+
 # AimoOS
 
-AimoOS 0.1.0 是面向 x86-64 虚拟机的中文 Linux 桌面试用版。它使用真实的 Linux 内核、磁盘、用户账户和本机应用；桌面、开始菜单、统一控件和六个基础应用使用 Python / Qt 6 编写。视觉采用 AimoChat 的纸、墨、中性灰和低饱和陶土规范。
+AimoOS 0.2.0 是面向 x86-64 虚拟机的中文 Linux 桌面试用版。它使用真实的 Linux 内核、磁盘、用户账户和本机应用；桌面、开始菜单、统一控件和六个基础应用使用 Python / Qt 6 编写。视觉采用 AimoChat 的纸、墨、中性灰和低饱和陶土规范。
 
-当前交付以 QEMU 为运行目标，定位是可启动、可保存工作、可运行 Linux 办公应用的第一版。还需要继续验证长期稳定性、更多硬件和复杂办公场景，才能作为主力工作系统。
+当前交付面向 Windows VMware 的 BIOS 虚拟机，采用 QEMU 验证独立启动与安装，定位是可启动、可保存工作、可运行 Linux 办公应用的预览版。还需要继续验证长期稳定性、更多硬件和复杂办公场景，才能作为主力工作系统。
 
 ## 已实现
 
@@ -78,10 +84,10 @@ python3 -m compileall -q aimo scripts tools
 
 ## 当前边界
 
-- 当前镜像由 QEMU 直接加载内核启动，没有安装器、引导 ISO、Secure Boot 或 VirtualBox / VMware 兼容验证。
+- 0.2.0 提供 BIOS 安装 ISO 和 VMX/VMDK 包；没有 UEFI、Secure Boot 或真实 Windows VMware 的兼容实测。原 QEMU 开发构建仍可直接加载内核。
 - 采用专用启动脚本，而非完整的 systemd 服务管理；APT 数据库用于基本包识别，包维护、升级和额外服务仍需专项验证。
 - 本机 Linux 应用可以运行；Windows `.exe` 兼容层、应用商店、磁盘加密、企业管理没有实现。
-- 网络使用 QEMU NAT；Wi-Fi、蓝牙、打印机、摄像头、真实 GPU 和主机共享目录尚未验证。
+- 网络通过 DHCP 获取地址，建议虚拟机使用 NAT；Wi-Fi、蓝牙、打印机、摄像头、真实 GPU 和主机共享目录尚未验证。
 - 当前桌面基于 X11，适合个人虚拟机试用，多用户并发和强隔离需要进一步建设。
 - 当前终端没有滚动历史或鼠标文本选择，完整终端可从开始菜单启动 XTerm。
 - 音频组件已经包含，实际输出取决于主机后端，本次测试未验证声音。

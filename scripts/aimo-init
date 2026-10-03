@@ -21,6 +21,8 @@ ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 ldconfig
 [ -s "/lib/modules/$(uname -r)/modules.dep" ] || depmod -a
 modprobe bochs 2>/dev/null || true
+modprobe vmwgfx 2>/dev/null || true
+modprobe vmxnet3 2>/dev/null || true
 modprobe e1000 2>/dev/null || true
 modprobe virtio_rng 2>/dev/null || true
 modprobe snd_hda_intel 2>/dev/null || true
@@ -44,6 +46,7 @@ if [ ! -e /var/lib/aimoos/initialized ]; then
   touch /var/lib/aimoos/initialized
 fi
 dbus-daemon --system --fork 2>/dev/null || true
+if [ -x /usr/bin/vmtoolsd ]; then /usr/bin/vmtoolsd > /var/log/vmtools.log 2>&1 & fi
 for aimo_iface in /sys/class/net/*; do
   aimo_iface=${aimo_iface##*/}
   [ "$aimo_iface" = lo ] && continue
@@ -51,6 +54,19 @@ for aimo_iface in /sys/class/net/*; do
   /usr/bin/busybox udhcpc -b -i "$aimo_iface" -s /opt/aimoos/scripts/dhcp-event > /var/log/network.log 2>&1 &
 done
 ip link set lo up
+case " $(cat /proc/cmdline) " in
+  *" aimo.build=1 "*)
+    mkdir -p /aimo/media
+    mount -t iso9660 -o ro /dev/sr0 /aimo/media
+    if python3 /opt/aimoos/scripts/install_disk.py /dev/sda; then
+      echo AIMO_INSTALL_SUCCESS > /dev/ttyS0
+    else
+      echo AIMO_INSTALL_FAILED > /dev/ttyS0
+    fi
+    sync
+    exec /usr/bin/busybox poweroff -f
+    ;;
+esac
 case " $(cat /proc/cmdline) " in
   *" aimo.test=1 "*) python3 /opt/aimoos/tools/guest_probe.py > /var/log/test-probe.log 2>&1 & ;;
 esac
@@ -73,10 +89,14 @@ until xdpyinfo -display :0 >/dev/null 2>&1; do
   fi
   sleep 1
 done
-xrandr --output Virtual-1 --mode 1600x900 2>/dev/null || xrandr --output VGA-1 --mode 1600x900 2>/dev/null || true
+aimo_output=$(xrandr --query 2>/dev/null | mawk '$2 == "connected" {print $1; exit}')
+if [ -n "$aimo_output" ]; then xrandr --output "$aimo_output" --mode 1600x900 2>/dev/null || true; fi
 xset s off
 xset -dpms
 cd /opt/aimoos
+case " $(cat /proc/cmdline) " in
+  *" aimo.install=1 "*) python3 -m aimo.installer > /var/log/installer.log 2>&1; exec /usr/bin/busybox sh ;;
+esac
 while kill -0 "$aimo_x_pid" 2>/dev/null; do
   python3 -m aimo.main --greeter >> /var/log/greeter.log 2>&1
   sleep 1
