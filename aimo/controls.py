@@ -1,6 +1,6 @@
 """Shared native controls: motion, pointer geometry and focus belong here."""
 from PyQt6.QtCore import Qt, QRectF, QPointF, QPropertyAnimation, QEasingCurve, pyqtProperty, pyqtSignal
-from PyQt6.QtGui import QPainter, QPen, QColor, QKeyEvent
+from PyQt6.QtGui import QPainter, QPen, QColor, QKeyEvent, QFontMetrics
 from PyQt6.QtWidgets import QAbstractButton, QWidget, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit
 from .theme import THEME, font, RADII
 from .icons import draw_icon
@@ -32,6 +32,13 @@ class Button(QAbstractButton):
         self.setMinimumHeight(38); self.setMinimumWidth(40 if not text else 76)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        THEME.changed.connect(self.refresh_size);self.refresh_size()
+
+    def refresh_size(self):
+        if self.text():
+            padding=46 if self.icon_name else 18
+            self.setMinimumWidth(max(76,QFontMetrics(font(10)).horizontalAdvance(self.text())+padding))
+        self.update()
 
     @pyqtProperty(float)
     def hover(self): return self._hover
