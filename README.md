@@ -103,3 +103,5 @@ python3 -m compileall -q aimo scripts tools
 发布构建流式读取软件包元数据，SquashFS 压缩内存限制为 256 MiB；临时安装虚拟机使用 2 GiB 内存，交付的 VMware 配置仍为 4 GiB。失败时保存完整构建日志。
 
 发布流程分为文件系统准备、ISO、虚拟磁盘安装和 VMware 打包四个阶段，便于确认进度并保存中间日志。
+
+ISO 生成后删除压缩暂存副本，磁盘安装成功后立即释放临时根文件系统和引导磁盘，再生成 VMDK 与 ZIP，降低构建磁盘占用峰值。

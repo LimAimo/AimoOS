@@ -112,6 +112,8 @@ def main():
         shutil.copy2(B/'sysroot/usr/lib/syslinux/modules/bios/ldlinux.c32',stage/'isolinux/ldlinux.c32')
         (stage/'isolinux/isolinux.cfg').write_text('DEFAULT aimo\nPROMPT 0\nTIMEOUT 30\nLABEL aimo\n KERNEL /aimo/vmlinuz\n APPEND initrd=/aimo/initrd.gz aimo.install=1 quiet loglevel=3\n')
         native([B/'sysroot/usr/bin/xorriso','-as','mkisofs','-o',iso,'-V','AIMOOS_INSTALL','-b','isolinux/isolinux.bin','-c','isolinux/boot.cat','-no-emul-boot','-boot-load-size','4','-boot-info-table','-isohybrid-mbr',B/'sysroot/usr/lib/ISOLINUX/isohdpfx.bin',stage])
+        # The ISO now owns these bytes; do not retain a second compressed copy.
+        shutil.rmtree(stage)
         # A disposable bootstrap root, with external kernel, exists only at build time.
         bootstrap=B/'vmware-bootstrap.img'
         if bootstrap.exists():bootstrap.unlink(missing_ok=True)
@@ -126,6 +128,9 @@ def main():
         command=[B/'sysroot/usr/bin/qemu-system-x86_64','-L',B/'sysroot/usr/share/qemu','-accel','tcg,thread=multi','-cpu','max','-smp','2','-m','2048','-display','none','-nic','none','-snapshot','-kernel',R/'boot/vmlinuz','-initrd',R/'boot/initrd.gz','-append','root=LABEL=AimoOS rw console=ttyS0 loglevel=4 aimo.build=1','-drive',f'file={bootstrap},format=raw,if=virtio','-device','ich9-ahci,id=sata','-drive',f'file={disk},format=raw,if=none,id=target,snapshot=off','-device','ide-hd,drive=target,bus=sata.0','-drive',f'file={iso},media=cdrom,readonly=on','-serial',f'file:{log}','-no-reboot']
         native(command,timeout=1200)
         if 'AIMO_INSTALL_SUCCESS' not in log.read_text(errors='replace'):raise RuntimeError('Guest installer failed; inspect '+str(log))
+        # Release disposable roots before allocating VMDK and ZIP output.
+        bootstrap.unlink(missing_ok=True)
+        if not args.stage_root:shutil.rmtree(R)
     if args.phase=='install':return
     folder=out/f'AimoOS-{V}-VMware';folder.mkdir()
     print('Converting installed disk to VMware VMDK…',flush=True)
@@ -165,7 +170,7 @@ tools.syncTime = "TRUE"
     sums=out/'SHA256SUMS.txt'
     sums.write_text(''.join(f'{hashlib.file_digest(f.open("rb"),"sha256").hexdigest()}  {f.name}\n' for f in (iso,archive)))
     bootstrap.unlink(missing_ok=True)
-    if not args.stage_root:shutil.rmtree(R)
+    if not args.stage_root and R.exists():shutil.rmtree(R)
     shutil.copy2(B/'packages.lock.json',out/'packages.lock.json')
     print(json.dumps({'iso':str(iso),'vmware':str(archive),'checksums':str(sums)},indent=2),flush=True)
 if __name__=='__main__':main()
