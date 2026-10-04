@@ -48,11 +48,59 @@ jobs:
           df -h /tmp
           sudo env PYTHONUNBUFFERED=1 AIMO_BUILD_DIR=/tmp/aimoos-build python3 scripts/build_vmware.py --out /tmp/aimoos-release --phase package 2>&1 | tee -a /tmp/aimoos-build.log
           sudo chmod a+r /tmp/aimoos-release/*.iso /tmp/aimoos-release/*.zip /tmp/aimoos-release/SHA256SUMS.txt
+      - name: Verify and stage downloadable images
+        id: images
+        run: |
+          set -euo pipefail
+          version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          cd /tmp/aimoos-release
+          test -s "AimoOS-${version}-amd64.iso"
+          test -s "AimoOS-${version}-VMware.zip"
+          sha256sum --check SHA256SUMS.txt
+          python3 -m zipfile --test "AimoOS-${version}-VMware.zip"
+          test -s "AimoOS-${version}-VMware/AimoOS.vmx"
+          test -s "AimoOS-${version}-VMware/AimoOS.vmdk"
+      - name: Save ISO download
+        id: iso
+        uses: actions/upload-artifact@v4
+        with:
+          name: AimoOS-${{ steps.images.outputs.version }}-ISO
+          path: /tmp/aimoos-release/AimoOS-${{ steps.images.outputs.version }}-amd64.iso
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Save ready-to-open VMware download
+        id: vmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: AimoOS-${{ steps.images.outputs.version }}-VMware
+          path: /tmp/aimoos-release/AimoOS-${{ steps.images.outputs.version }}-VMware/
+          compression-level: 3
+          if-no-files-found: error
+          retention-days: 30
+      - name: Show image download links
+        env:
+          ISO_URL: ${{ steps.iso.outputs.artifact-url }}
+          VMWARE_URL: ${{ steps.vmware.outputs.artifact-url }}
+        run: |
+          {
+            echo '## AimoOS 镜像下载'
+            echo
+            echo "- [ISO 镜像下载]($ISO_URL)：解压下载包后，使用其中的 .iso 文件。"
+            echo "- [VMware 虚拟机下载]($VMWARE_URL)：解压后，用 Windows VMware 打开 .vmx 文件。"
+            echo
+            echo '以上两个下载包包含实际镜像，Actions 保存 30 天；日志产物仅用于排查问题。'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Publish prerelease
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')
+          if gh release view "v${version}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v${version} already exists; preserving its published images. New images are available in this run's artifacts." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           gh release create "v${version}" "/tmp/aimoos-release/AimoOS-${version}-amd64.iso" "/tmp/aimoos-release/AimoOS-${version}-VMware.zip" /tmp/aimoos-release/SHA256SUMS.txt docs/VMWARE.md --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "AimoOS ${version} · VMware 预览版" --prerelease --notes-file docs/RELEASE_0.2.0.md
       - name: Save build log on failure
         if: failure()
