@@ -91,11 +91,12 @@ def main():
     else:
         base.prepare_root()
     kernel=next((B/'sysroot/boot').glob('vmlinuz-*'));base.copy(kernel,'/boot/vmlinuz',0o644)
+    print('Building storage initramfs…',flush=True)
     initrd(R/'boot/initrd.gz')
     base.write('/boot/grub/grub.cfg','set timeout=3\nset default=0\nmenuentry "AimoOS" {\n search --no-floppy --label AimoOS --set=root\n linux /boot/vmlinuz root=LABEL=AimoOS rw quiet loglevel=3\n initrd /boot/initrd.gz\n}\n')
     stage=B/'iso-stage';shutil.rmtree(stage,ignore_errors=True);(stage/'aimo').mkdir(parents=True);(stage/'isolinux').mkdir()
     print('Compressing install filesystem…',flush=True)
-    native([B/'sysroot/usr/bin/mksquashfs',R,stage/'aimo/root.squashfs','-noappend','-comp','zstd','-Xcompression-level','3','-processors','2','-no-progress'])
+    native([B/'sysroot/usr/bin/mksquashfs',R,stage/'aimo/root.squashfs','-noappend','-comp','zstd','-Xcompression-level','3','-processors','2','-mem','256M','-no-progress'])
     shutil.copy2(R/'boot/vmlinuz',stage/'aimo/vmlinuz');shutil.copy2(R/'boot/initrd.gz',stage/'aimo/initrd.gz')
     shutil.copy2(B/'sysroot/usr/lib/ISOLINUX/isolinux.bin',stage/'isolinux/isolinux.bin')
     shutil.copy2(B/'sysroot/usr/lib/syslinux/modules/bios/ldlinux.c32',stage/'isolinux/ldlinux.c32')
@@ -105,14 +106,16 @@ def main():
     bootstrap=B/'vmware-bootstrap.img'
     if bootstrap.exists():bootstrap.unlink(missing_ok=True)
     with bootstrap.open('wb') as f:f.truncate(12*1024**3)
+    print('Preparing disposable bootstrap disk…',flush=True)
     subprocess.run(['mke2fs','-q','-t','ext4','-F','-m','1','-L','AimoOS','-d',str(R),str(bootstrap)],check=True)
     with disk.open('wb') as f:f.truncate(args.size_gib*1024**3)
     print('Installing the ISO onto the new virtual SATA disk…',flush=True)
     log=out/'build-boot.log'
-    command=[B/'sysroot/usr/bin/qemu-system-x86_64','-L',B/'sysroot/usr/share/qemu','-accel','tcg,thread=multi','-cpu','max','-smp','4','-m','4096','-display','none','-nic','none','-snapshot','-kernel',R/'boot/vmlinuz','-initrd',R/'boot/initrd.gz','-append','root=LABEL=AimoOS rw console=ttyS0 loglevel=4 aimo.build=1','-drive',f'file={bootstrap},format=raw,if=virtio','-device','ich9-ahci,id=sata','-drive',f'file={disk},format=raw,if=none,id=target,snapshot=off','-device','ide-hd,drive=target,bus=sata.0','-drive',f'file={iso},media=cdrom,readonly=on','-serial',f'file:{log}','-no-reboot']
+    command=[B/'sysroot/usr/bin/qemu-system-x86_64','-L',B/'sysroot/usr/share/qemu','-accel','tcg,thread=multi','-cpu','max','-smp','2','-m','2048','-display','none','-nic','none','-snapshot','-kernel',R/'boot/vmlinuz','-initrd',R/'boot/initrd.gz','-append','root=LABEL=AimoOS rw console=ttyS0 loglevel=4 aimo.build=1','-drive',f'file={bootstrap},format=raw,if=virtio','-device','ich9-ahci,id=sata','-drive',f'file={disk},format=raw,if=none,id=target,snapshot=off','-device','ide-hd,drive=target,bus=sata.0','-drive',f'file={iso},media=cdrom,readonly=on','-serial',f'file:{log}','-no-reboot']
     native(command,timeout=1200)
     if 'AIMO_INSTALL_SUCCESS' not in log.read_text(errors='replace'):raise RuntimeError('Guest installer failed; inspect '+str(log))
     folder=out/f'AimoOS-{V}-VMware';folder.mkdir()
+    print('Converting installed disk to VMware VMDK…',flush=True)
     native([B/'sysroot/usr/bin/qemu-img','convert','-p','-f','raw','-O','vmdk','-o','subformat=monolithicSparse,adapter_type=ide',disk,folder/'AimoOS.vmdk'])
     (folder/'AimoOS.vmx').write_text('''.encoding = "UTF-8"
 config.version = "8"
@@ -143,6 +146,7 @@ tools.syncTime = "TRUE"
     guide=P/'docs/VMWARE.md'
     if guide.exists():shutil.copy2(guide,folder/'VMware-Guide.md')
     archive=out/f'AimoOS-{V}-VMware.zip'
+    print('Packaging VMX, VMDK and Chinese guide…',flush=True)
     with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
         for file in sorted(folder.iterdir()):z.write(file,file.relative_to(out))
     sums=out/'SHA256SUMS.txt'

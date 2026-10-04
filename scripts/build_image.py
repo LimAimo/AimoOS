@@ -39,11 +39,14 @@ def package_database():
         control=subprocess.check_output(["dpkg-deb","-f",str(deb)],text=True).strip()
         package=next(line.split(": ",1)[1] for line in control.splitlines() if line.startswith("Package: "))
         statuses.append(control+"\nStatus: install ok installed\n")
-        paths=subprocess.check_output(["dpkg-deb","--fsys-tarfile",str(deb)])
-        # Use tarfile in memory; no package maintainer script is run on the host.
-        import tarfile,io
-        with tarfile.open(fileobj=io.BytesIO(paths),mode="r:") as archive:
-            (info/(package+".list")).write_text("\n".join("/"+m.name.removeprefix("./").rstrip("/") for m in archive.getmembers() if m.name!=".")+"\n")
+        # Stream package members: large office/LLVM archives must not reside in RAM.
+        import tarfile
+        with subprocess.Popen(["dpkg-deb","--fsys-tarfile",str(deb)],stdout=subprocess.PIPE) as unpack:
+            with tarfile.open(fileobj=unpack.stdout,mode="r|") as archive:
+                with (info/(package+".list")).open("w") as listing:
+                    for member in archive:
+                        if member.name!=".":listing.write("/"+member.name.removeprefix("./").rstrip("/")+"\n")
+            if unpack.wait()!=0:raise RuntimeError("Cannot read package members: "+str(deb))
     write("/var/lib/dpkg/status","\n".join(statuses))
     for name in ["updates","triggers","alternatives"]:(ROOT/"var/lib/dpkg"/name).mkdir(exist_ok=True)
 
