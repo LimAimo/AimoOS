@@ -1,5 +1,7 @@
 # AimoOS 0.2.0 · VMware 预览版
 
+[下载 AimoOS 0.2.0](https://github.com/LimAimo/AimoOS/releases/tag/v0.2.0)：[安装 ISO](https://github.com/LimAimo/AimoOS/releases/download/v0.2.0/AimoOS-0.2.0-amd64.iso) · [VMware 虚拟机包](https://github.com/LimAimo/AimoOS/releases/download/v0.2.0/AimoOS-0.2.0-VMware.zip) · [SHA256 校验](https://github.com/LimAimo/AimoOS/releases/download/v0.2.0/SHA256SUMS.txt)。私有仓库下载需要登录有访问权限的 GitHub 账户。
+
 新增 BIOS 可安装 ISO、VMware VMX/VMDK 包与空白磁盘安装器。Windows VMware 的两种部署方式见 [手把手教程](docs/VMWARE.md)。本版要求 BIOS 和关闭 3D 加速。
 
 独立构建机使用 `native_env.sh` 加载解包运行时及 libproxy 后端路径。

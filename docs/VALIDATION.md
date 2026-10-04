@@ -67,3 +67,9 @@ AIMO_BUILD_DIR=/path/to/build QT_QPA_PLATFORM=offscreen \
 - 声音、打印机、共享目录、实体硬件、安装器和其他虚拟机产品。
 
 这是可试用的首版及其实际检查范围，不代表已经完成日常办公系统的全部验收。
+
+## 2026-10-04 发布构建
+
+GitHub Actions 运行 37166320671（提交 afd3ad32a280d4be4ca0603f6e379f7eb1a98454）成功完成依赖解析、10 项检查、文件系统和 initramfs、BIOS ISO、ISO 安装至 SATA 磁盘、VMDK/ZIP 打包及预发布上传。安装完成后先释放临时根和引导磁盘，解决打包时的磁盘占用峰值。
+
+Release v0.2.0 的四个资产均为 uploaded：ISO 910163968 字节、VMware ZIP 889355372 字节、SHA256SUMS.txt 179 字节、VMWARE.md 6245 字节。Windows VMware 仍未在当前环境实测。
