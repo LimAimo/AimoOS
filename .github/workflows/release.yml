@@ -23,12 +23,29 @@ jobs:
         run: |
           sudo install -d -m 700 /tmp/aimo-ci-runtime
           sudo env XDG_RUNTIME_DIR=/tmp/aimo-ci-runtime AIMO_BUILD_DIR=/tmp/aimoos-build QT_QPA_PLATFORM=offscreen bash scripts/native_env.sh /tmp/aimoos-build/sysroot/usr/bin/python3.12 -m unittest discover -s tests -v
-      - name: Build ISO and install VMware disk
+      - name: Prepare Linux root and storage initramfs
         run: |
           set -o pipefail
           free -h
           df -h /tmp
-          sudo env PYTHONUNBUFFERED=1 AIMO_BUILD_DIR=/tmp/aimoos-build python3 scripts/build_vmware.py --out /tmp/aimoos-release 2>&1 | tee /tmp/aimoos-build.log
+          sudo env PYTHONUNBUFFERED=1 AIMO_BUILD_DIR=/tmp/aimoos-build python3 scripts/build_vmware.py --out /tmp/aimoos-release --phase prepare 2>&1 | tee /tmp/aimoos-build.log
+      - name: Create bootable ISO and bootstrap disk
+        run: |
+          set -o pipefail
+          sudo env PYTHONUNBUFFERED=1 AIMO_BUILD_DIR=/tmp/aimoos-build python3 scripts/build_vmware.py --out /tmp/aimoos-release --phase iso 2>&1 | tee -a /tmp/aimoos-build.log
+      - name: Save filesystem build log
+        uses: actions/upload-artifact@v4
+        with:
+          name: aimoos-filesystem-log
+          path: /tmp/aimoos-build.log
+      - name: Install ISO onto virtual SATA disk
+        run: |
+          set -o pipefail
+          sudo env PYTHONUNBUFFERED=1 AIMO_BUILD_DIR=/tmp/aimoos-build python3 scripts/build_vmware.py --out /tmp/aimoos-release --phase install 2>&1 | tee -a /tmp/aimoos-build.log
+      - name: Package VMware VMX and VMDK
+        run: |
+          set -o pipefail
+          sudo env PYTHONUNBUFFERED=1 AIMO_BUILD_DIR=/tmp/aimoos-build python3 scripts/build_vmware.py --out /tmp/aimoos-release --phase package 2>&1 | tee -a /tmp/aimoos-build.log
           sudo chmod a+r /tmp/aimoos-release/*.iso /tmp/aimoos-release/*.zip /tmp/aimoos-release/SHA256SUMS.txt
       - name: Publish prerelease
         env:

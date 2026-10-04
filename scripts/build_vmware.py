@@ -72,48 +72,61 @@ def initrd(output):
     with gzip.open(output,'wb',compresslevel=6) as archive:archive.write(base.newc(entries))
 
 def main():
-    ap=argparse.ArgumentParser();ap.add_argument('--out',type=Path,required=True);ap.add_argument('--size-gib',type=int,default=20);ap.add_argument('--stage-root',type=Path,help='Reuse a pristine staging tree after a failed build')
+    global R
+    ap=argparse.ArgumentParser();ap.add_argument('--phase',choices=['all','prepare','iso','install','package'],default='all');ap.add_argument('--out',type=Path,required=True);ap.add_argument('--size-gib',type=int,default=20);ap.add_argument('--stage-root',type=Path,help='Reuse a pristine staging tree after a failed build')
     args=ap.parse_args();out=args.out.resolve();out.mkdir(parents=True,exist_ok=True)
     if args.size_gib<16:ap.error('VM disk must be at least 16 GiB')
     iso=out/f'AimoOS-{V}-amd64.iso';disk=out/'aimoos-vmware.raw'
-    if iso.exists() or disk.exists():raise SystemExit('Output exists; choose another folder to protect user data.')
-    if args.stage_root:
-        global R
-        R=args.stage_root.resolve();base.ROOT=R
-        if not (R/'usr/bin/python3.12').is_file() or list((R/'home').iterdir()):
-            raise SystemExit('Only an empty-account build staging tree can be reused.')
-        for source in P.rglob('*'):
-            relative=source.relative_to(P)
-            if any(part in ('build','out','screenshots','.git','__pycache__','release') for part in relative.parts):continue
-            if source.is_file() and source.suffix not in ('.log','.zip','.vmdk','.img','.iso','.pyc'):
-                dest=R/'opt/aimoos'/relative;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(source,dest)
-        base.copy(P/'scripts/aimo-init','/sbin/aimo-init',0o755)
-    else:
-        base.prepare_root()
-    kernel=next((B/'sysroot/boot').glob('vmlinuz-*'));base.copy(kernel,'/boot/vmlinuz',0o644)
-    print('Building storage initramfs…',flush=True)
-    initrd(R/'boot/initrd.gz')
-    base.write('/boot/grub/grub.cfg','set timeout=3\nset default=0\nmenuentry "AimoOS" {\n search --no-floppy --label AimoOS --set=root\n linux /boot/vmlinuz root=LABEL=AimoOS rw quiet loglevel=3\n initrd /boot/initrd.gz\n}\n')
-    stage=B/'iso-stage';shutil.rmtree(stage,ignore_errors=True);(stage/'aimo').mkdir(parents=True);(stage/'isolinux').mkdir()
-    print('Compressing install filesystem…',flush=True)
-    native([B/'sysroot/usr/bin/mksquashfs',R,stage/'aimo/root.squashfs','-noappend','-comp','zstd','-Xcompression-level','3','-processors','2','-mem','256M','-no-progress'])
-    shutil.copy2(R/'boot/vmlinuz',stage/'aimo/vmlinuz');shutil.copy2(R/'boot/initrd.gz',stage/'aimo/initrd.gz')
-    shutil.copy2(B/'sysroot/usr/lib/ISOLINUX/isolinux.bin',stage/'isolinux/isolinux.bin')
-    shutil.copy2(B/'sysroot/usr/lib/syslinux/modules/bios/ldlinux.c32',stage/'isolinux/ldlinux.c32')
-    (stage/'isolinux/isolinux.cfg').write_text('DEFAULT aimo\nPROMPT 0\nTIMEOUT 30\nLABEL aimo\n KERNEL /aimo/vmlinuz\n APPEND initrd=/aimo/initrd.gz aimo.install=1 quiet loglevel=3\n')
-    native([B/'sysroot/usr/bin/xorriso','-as','mkisofs','-o',iso,'-V','AIMOOS_INSTALL','-b','isolinux/isolinux.bin','-c','isolinux/boot.cat','-no-emul-boot','-boot-load-size','4','-boot-info-table','-isohybrid-mbr',B/'sysroot/usr/lib/ISOLINUX/isohdpfx.bin',stage])
-    # A disposable bootstrap root, with external kernel, exists only at build time.
+    if args.phase in ('all','prepare') and (iso.exists() or disk.exists()):raise SystemExit('Output exists; choose another folder to protect user data.')
+    state=out/'build-state.json'
+    if args.phase not in ('all','prepare'):
+        R=Path(json.loads(state.read_text())['root']).resolve();base.ROOT=R
+        if not R.is_relative_to(B.resolve()) or not R.name.startswith('guest-root-'):
+            raise SystemExit('Invalid build staging path')
+    if args.phase in ('all','prepare'):
+        if args.stage_root:
+            R=args.stage_root.resolve();base.ROOT=R
+            if not (R/'usr/bin/python3.12').is_file() or list((R/'home').iterdir()):
+                raise SystemExit('Only an empty-account build staging tree can be reused.')
+            for source in P.rglob('*'):
+                relative=source.relative_to(P)
+                if any(part in ('build','out','screenshots','.git','__pycache__','release') for part in relative.parts):continue
+                if source.is_file() and source.suffix not in ('.log','.zip','.vmdk','.img','.iso','.pyc'):
+                    dest=R/'opt/aimoos'/relative;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(source,dest)
+            base.copy(P/'scripts/aimo-init','/sbin/aimo-init',0o755)
+        else:
+            base.prepare_root()
+        kernel=next((B/'sysroot/boot').glob('vmlinuz-*'));base.copy(kernel,'/boot/vmlinuz',0o644)
+        print('Building storage initramfs…',flush=True)
+        initrd(R/'boot/initrd.gz')
+        base.write('/boot/grub/grub.cfg','set timeout=3\nset default=0\nmenuentry "AimoOS" {\n search --no-floppy --label AimoOS --set=root\n linux /boot/vmlinuz root=LABEL=AimoOS rw quiet loglevel=3\n initrd /boot/initrd.gz\n}\n')
+        state.write_text(json.dumps({'root':str(R)}))
+    if args.phase=='prepare':return
     bootstrap=B/'vmware-bootstrap.img'
-    if bootstrap.exists():bootstrap.unlink(missing_ok=True)
-    with bootstrap.open('wb') as f:f.truncate(12*1024**3)
-    print('Preparing disposable bootstrap disk…',flush=True)
-    subprocess.run(['mke2fs','-q','-t','ext4','-F','-m','1','-L','AimoOS','-d',str(R),str(bootstrap)],check=True)
-    with disk.open('wb') as f:f.truncate(args.size_gib*1024**3)
-    print('Installing the ISO onto the new virtual SATA disk…',flush=True)
-    log=out/'build-boot.log'
-    command=[B/'sysroot/usr/bin/qemu-system-x86_64','-L',B/'sysroot/usr/share/qemu','-accel','tcg,thread=multi','-cpu','max','-smp','2','-m','2048','-display','none','-nic','none','-snapshot','-kernel',R/'boot/vmlinuz','-initrd',R/'boot/initrd.gz','-append','root=LABEL=AimoOS rw console=ttyS0 loglevel=4 aimo.build=1','-drive',f'file={bootstrap},format=raw,if=virtio','-device','ich9-ahci,id=sata','-drive',f'file={disk},format=raw,if=none,id=target,snapshot=off','-device','ide-hd,drive=target,bus=sata.0','-drive',f'file={iso},media=cdrom,readonly=on','-serial',f'file:{log}','-no-reboot']
-    native(command,timeout=1200)
-    if 'AIMO_INSTALL_SUCCESS' not in log.read_text(errors='replace'):raise RuntimeError('Guest installer failed; inspect '+str(log))
+    if args.phase in ('all','iso'):
+        stage=B/'iso-stage';shutil.rmtree(stage,ignore_errors=True);(stage/'aimo').mkdir(parents=True);(stage/'isolinux').mkdir()
+        print('Compressing install filesystem…',flush=True)
+        native([B/'sysroot/usr/bin/mksquashfs',R,stage/'aimo/root.squashfs','-noappend','-comp','zstd','-Xcompression-level','3','-processors','2','-mem','256M','-no-progress'])
+        shutil.copy2(R/'boot/vmlinuz',stage/'aimo/vmlinuz');shutil.copy2(R/'boot/initrd.gz',stage/'aimo/initrd.gz')
+        shutil.copy2(B/'sysroot/usr/lib/ISOLINUX/isolinux.bin',stage/'isolinux/isolinux.bin')
+        shutil.copy2(B/'sysroot/usr/lib/syslinux/modules/bios/ldlinux.c32',stage/'isolinux/ldlinux.c32')
+        (stage/'isolinux/isolinux.cfg').write_text('DEFAULT aimo\nPROMPT 0\nTIMEOUT 30\nLABEL aimo\n KERNEL /aimo/vmlinuz\n APPEND initrd=/aimo/initrd.gz aimo.install=1 quiet loglevel=3\n')
+        native([B/'sysroot/usr/bin/xorriso','-as','mkisofs','-o',iso,'-V','AIMOOS_INSTALL','-b','isolinux/isolinux.bin','-c','isolinux/boot.cat','-no-emul-boot','-boot-load-size','4','-boot-info-table','-isohybrid-mbr',B/'sysroot/usr/lib/ISOLINUX/isohdpfx.bin',stage])
+        # A disposable bootstrap root, with external kernel, exists only at build time.
+        bootstrap=B/'vmware-bootstrap.img'
+        if bootstrap.exists():bootstrap.unlink(missing_ok=True)
+        with bootstrap.open('wb') as f:f.truncate(12*1024**3)
+        print('Preparing disposable bootstrap disk…',flush=True)
+        subprocess.run(['mke2fs','-q','-t','ext4','-F','-m','1','-L','AimoOS','-d',str(R),str(bootstrap)],check=True)
+        with disk.open('wb') as f:f.truncate(args.size_gib*1024**3)
+    if args.phase=='iso':return
+    if args.phase in ('all','install'):
+        print('Installing the ISO onto the new virtual SATA disk…',flush=True)
+        log=out/'build-boot.log'
+        command=[B/'sysroot/usr/bin/qemu-system-x86_64','-L',B/'sysroot/usr/share/qemu','-accel','tcg,thread=multi','-cpu','max','-smp','2','-m','2048','-display','none','-nic','none','-snapshot','-kernel',R/'boot/vmlinuz','-initrd',R/'boot/initrd.gz','-append','root=LABEL=AimoOS rw console=ttyS0 loglevel=4 aimo.build=1','-drive',f'file={bootstrap},format=raw,if=virtio','-device','ich9-ahci,id=sata','-drive',f'file={disk},format=raw,if=none,id=target,snapshot=off','-device','ide-hd,drive=target,bus=sata.0','-drive',f'file={iso},media=cdrom,readonly=on','-serial',f'file:{log}','-no-reboot']
+        native(command,timeout=1200)
+        if 'AIMO_INSTALL_SUCCESS' not in log.read_text(errors='replace'):raise RuntimeError('Guest installer failed; inspect '+str(log))
+    if args.phase=='install':return
     folder=out/f'AimoOS-{V}-VMware';folder.mkdir()
     print('Converting installed disk to VMware VMDK…',flush=True)
     native([B/'sysroot/usr/bin/qemu-img','convert','-p','-f','raw','-O','vmdk','-o','subformat=monolithicSparse,adapter_type=ide',disk,folder/'AimoOS.vmdk'])

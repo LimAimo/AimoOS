@@ -101,3 +101,5 @@ python3 -m compileall -q aimo scripts tools
 自有源代码采用 [MIT](LICENSE)。Linux、Ubuntu 软件包、Qt、LibreOffice 等第三方组件保留各自许可；镜像保留软件包的版权文件。`DESIGN_SYSTEM.md` 是用户提供的 AimoChat 设计规范。AimoOS 为独立项目。
 
 发布构建流式读取软件包元数据，SquashFS 压缩内存限制为 256 MiB；临时安装虚拟机使用 2 GiB 内存，交付的 VMware 配置仍为 4 GiB。失败时保存完整构建日志。
+
+发布流程分为文件系统准备、ISO、虚拟磁盘安装和 VMware 打包四个阶段，便于确认进度并保存中间日志。
