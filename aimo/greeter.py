@@ -41,6 +41,12 @@ class Greeter(QWidget):
         self.error=label("","muted");self.error.setWordWrap(True);self.error.setMinimumHeight(32);form.addWidget(self.error)
         submit=Button("创建账户" if self.first_run else "登录",ink=True);submit.setMinimumHeight(43)
         submit.clicked.connect(self.submit);form.addWidget(submit)
+        if self.first_run:
+            skip=Button("跳过此步骤");skip.setMinimumHeight(43)
+            skip.clicked.connect(self.skip_setup);form.addWidget(skip)
+            hint=label("跳过后使用无密码的本地账户，可在设置中添加密码。","muted")
+            hint.setWordWrap(True);form.addWidget(hint)
+            self.fields["password"].setPlaceholderText("6 至 256 个字符")
         self.fields[fields[-1][0]].returnPressed.connect(self.submit)
         form.addSpacing(20)
         self.theme_control=Segmented([("浅色","light"),("深色","dark")])
@@ -71,6 +77,23 @@ class Greeter(QWidget):
             # Never include subprocess stdin, shadow hashes or credentials in UI/logs.
             message=str(exc) if isinstance(exc,ValueError) else "暂时无法完成，请检查后重试"
             self.error.setText(message)
+
+    def skip_setup(self):
+        if not self.first_run:return
+        try:
+            username="aimo"
+            if not self.accounts.preview:
+                import pwd
+                index=0
+                while True:
+                    try:pwd.getpwnam(username)
+                    except KeyError:break
+                    index+=1;username=f"aimo{index}"
+            profile=self.accounts.create(username,"本地用户","",skip_password=True)
+            for field in self.fields.values():field.clear()
+            self.authenticated.emit(profile)
+        except Exception as exc:
+            self.error.setText(str(exc) if isinstance(exc,ValueError) else "无法创建本地账户，请重试")
 
     def choose_account(self):
         from PyQt6.QtWidgets import QMenu

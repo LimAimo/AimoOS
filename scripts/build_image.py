@@ -76,6 +76,11 @@ def prepare_root():
     # base-passwd ships templates; package maintainer scripts normally copy these.
     passwd=(ROOT/"usr/share/base-passwd/passwd.master").read_text()
     group=(ROOT/"usr/share/base-passwd/group.master").read_text()
+    if not any(line.startswith("sudo:") for line in group.splitlines()):
+        used={int(line.split(":")[2]) for line in group.splitlines()}
+        gid=27
+        while gid in used:gid+=1
+        group+=f"sudo:x:{gid}:\n"
     if not any(line.startswith("messagebus:") for line in passwd.splitlines()):passwd+="messagebus:x:102:102::/nonexistent:/usr/sbin/nologin\n"
     if not any(line.startswith("messagebus:") for line in group.splitlines()):group+="messagebus:x:102:\n"
     write("/etc/passwd",passwd);write("/etc/group",group)

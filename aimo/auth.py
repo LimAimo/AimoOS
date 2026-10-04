@@ -5,6 +5,7 @@ import hmac
 import json
 import os
 import pwd
+import grp
 import re
 import subprocess
 from .backend import atomic_json
@@ -39,23 +40,33 @@ class Accounts:
         if not display_name or len(display_name)>48 or any(x in display_name for x in ":\n\r\0"):raise ValueError("请输入有效的显示名称")
         if len(password)<6 or len(password)>256 or any(x in password for x in "\n\r\0"):raise ValueError("密码需要 6 至 256 个字符")
 
-    def create(self,username,display_name,password):
-        self.privileged();self.validate(username,display_name,password)
+    def create(self,username,display_name,password,*,skip_password=False):
+        self.privileged();self.validate(username,display_name,"unused-placeholder" if skip_password else password)
         profiles=self.all()
+        if skip_password and (profiles or password):raise ValueError("只有首次设置可以跳过密码")
         if any(p["username"]==username for p in profiles):raise ValueError("这个用户名已经存在")
         profile={"username":username,"display_name":display_name,"administrator":not profiles}
         if self.preview:
             salt=os.urandom(16)
             profile.update(salt=salt.hex(),digest=hashlib.scrypt(password.encode(),salt=salt,n=16384,r=8,p=1).hex())
         else:
+            # Extracted Debian packages do not run the postinst that creates sudo.
+            for group in ("sudo","video","audio"):
+                try:grp.getgrnam(group)
+                except KeyError:
+                    try:subprocess.run(["groupadd","--system",group],check=True,capture_output=True)
+                    except subprocess.SubprocessError:raise ValueError("无法准备账户权限组，请重试") from None
             subprocess.run(["useradd","--create-home","--shell","/bin/bash","--user-group","--comment",display_name,username],check=True,capture_output=True)
             try:
-                subprocess.run(["chpasswd"],input=f"{username}:{password}\n",text=True,check=True,capture_output=True)
+                if skip_password:
+                    subprocess.run(["passwd","--delete",username],check=True,capture_output=True)
+                else:
+                    subprocess.run(["chpasswd"],input=f"{username}:{password}\n",text=True,check=True,capture_output=True)
                 groups="sudo,video,audio" if profile["administrator"] else "video,audio"
                 subprocess.run(["usermod","-aG",groups,username],check=True,capture_output=True)
             except subprocess.SubprocessError:
                 subprocess.run(["userdel","--remove",username],capture_output=True)
-                raise RuntimeError("账户创建未完成，请重试") from None
+                raise ValueError("设置密码或账户权限失败，请重试") from None
         atomic_json(self.path,[*profiles,profile])
         if not self.preview:os.chmod(self.path,0o644)
         return profile
@@ -70,7 +81,8 @@ class Accounts:
         import crypt,spwd
         try:digest=spwd.getspnam(profile["username"]).sp_pwdp
         except KeyError:return False
-        if not digest or digest.startswith(("!","*")):return False
+        if digest=="":return password==""
+        if digest.startswith(("!","*")):return False
         return hmac.compare_digest(crypt.crypt(password,digest) or "",digest)
 
     def change_password(self,username,old_password,new_password):
